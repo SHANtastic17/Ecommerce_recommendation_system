@@ -4,14 +4,14 @@ from recommendation import display_product_recommendation
 import os
 from dotenv import load_dotenv
 
-# Load environment variables
-load_dotenv()
+# Hybrid configuration (works for both local and deployed environments)
+load_dotenv()  # Load .env if exists (local development only)
 
 def main():
     st.title("E-commerce Product Recommendation System")
     st.sidebar.title("Navigation")
     
-    # Load dataset
+    # Load dataset (update path if needed)
     dataset_path = "flipkart_com-ecommerce_sample.csv"
     df = load_data(dataset_path)
     
