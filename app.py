@@ -12,7 +12,7 @@ def main():
     st.sidebar.title("Navigation")
     
     # Load and preprocess data
-    dataset_path = "flipkart_dataset.csv"  # Update with your dataset path
+    dataset_path = "flipkart_com-ecommerce_sample.csv"  # Update with your dataset path
     df = load_data(dataset_path)
     if df is not None:
         refined_df = preprocess_data(df)
