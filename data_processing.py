@@ -100,6 +100,8 @@ def preprocess_data(df):
                            'description', 'brand', 'gender']
     refined_df = df[columns_of_interest]
     refined_df = refined_df.dropna(subset=['primary_category', 'retail_price', 'discounted_price'])
+    
+    # Add any further processing or feature extraction here
     return refined_df
 
 def display_data_analysis(refined_df):
@@ -111,6 +113,7 @@ def display_data_analysis(refined_df):
     """
     st.header("Data Analysis")
 
+    # Visualize price distribution across top categories
     top_categories = refined_df['primary_category'].value_counts().nlargest(10).index
     top_categories_df = refined_df[refined_df['primary_category'].isin(top_categories)]
 
@@ -121,6 +124,7 @@ def display_data_analysis(refined_df):
     ax.set_ylabel('Category')
     st.pyplot(fig)
 
+    # Visualize discount percentage distribution
     refined_df['discount_percentage'] = ((refined_df['retail_price'] - refined_df['discounted_price']) / refined_df['retail_price']) * 100
     fig, ax = plt.subplots(figsize=(10, 6))
     sns.histplot(refined_df['discount_percentage'], bins=30, kde=True, ax=ax)
@@ -128,3 +132,6 @@ def display_data_analysis(refined_df):
     ax.set_xlabel('Discount Percentage')
     ax.set_ylabel('Number of Products')
     st.pyplot(fig)
+    
+    # Optional: Add more visualizations for other aspects (e.g., product brand analysis, gender-based analysis)
+

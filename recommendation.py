@@ -1,149 +1,71 @@
 import os
 from dotenv import load_dotenv
 import streamlit as st
-from langchain.chains import RetrievalQA, LLMChain
-from langchain.chat_models import ChatOpenAI
-from langchain.document_loaders import DataFrameLoader
-from langchain.embeddings.openai import OpenAIEmbeddings
-from langchain.memory import ConversationBufferMemory
-from langchain.prompts import PromptTemplate
-from langchain.text_splitter import CharacterTextSplitter
-from langchain.vectorstores import FAISS
+from google import generativeai as genai
 
-# Load environment variables from .env file
+# Load API key from .env
 load_dotenv()
+api_key = os.getenv("GEMINI_API_KEY")
 
-def process_data(refined_df):
+# Configure Gemini API
+genai.configure(api_key=api_key)
+
+def generate_product_description(prompt):
     """
-    Process the refined dataset and create the vector store.
+    Generate a product description using Gemini API based on a prompt.
     
     Args:
-        refined_df (pd.DataFrame): Preprocessed dataset DataFrame.
-        
+        prompt (str): Prompt describing the product.
+    
     Returns:
-        vectorstore (FAISS): Vector store containing the processed data.
+        str: Generated description.
     """
-    refined_df['combined_info'] = refined_df.apply(lambda row: f"Product ID: {row['pid']}. Product URL: {row['product_url']}. Product Name: {row['product_name']}. Primary Category: {row['primary_category']}. Retail Price: ${row['retail_price']}. Discounted Price: ${row['discounted_price']}. Primary Image Link: {row['primary_image_link']}. Description: {row['description']}. Brand: {row['brand']}. Gender: {row['gender']}", axis=1)
-
-    loader = DataFrameLoader(refined_df, page_content_column="combined_info")
-    docs = loader.load()
-
-    text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-    texts = text_splitter.split_documents(docs)
-
-    embeddings = OpenAIEmbeddings(openai_api_key=os.getenv("OPENAI_API_KEY"))
-    vectorstore = FAISS.from_documents(texts, embeddings)
-
-    return vectorstore
-
-def save_vectorstore(vectorstore, directory):
-    """
-    Save the vector store to a directory.
-    
-    Args:
-        vectorstore (FAISS): Vector store to be saved.
-        directory (str): Directory to save the vector store.
-    """
-    vectorstore.save_local(directory)
-
-def load_vectorstore(directory, embeddings):
-    """
-    Load the vector store from a directory.
-    
-    Args:
-        directory (str): Directory containing the saved vector store.
-        embeddings (OpenAIEmbeddings): Embeddings object.
-        
-    Returns:
-        vectorstore (FAISS): Loaded vector store.
-    """
-    vectorstore = FAISS.load_local(directory, embeddings, allow_dangerous_deserialization = True  )
-    return vectorstore
+    try:
+        model = genai.GenerativeModel("gemini-1.5-flash")
+        response = model.generate_content(prompt)
+        return response.text
+    except Exception as e:
+        st.error(f"Error generating description: {str(e)}")
+        return ""
 
 def display_product_recommendation(refined_df):
     """
-    Display product recommendation section.
+    Display product recommendation interface.
     
     Args:
         refined_df (pd.DataFrame): Preprocessed dataset DataFrame.
     """
     st.header("Product Recommendation")
 
-    vectorstore_dir = 'vectorstore'
+    # Filter options
+    category = st.selectbox("Select Category", sorted(refined_df['primary_category'].dropna().unique()))
+    max_price = st.slider("Select Maximum Price", 
+                          min_value=int(refined_df['discounted_price'].min()), 
+                          max_value=int(refined_df['discounted_price'].max()), 
+                          value=int(refined_df['discounted_price'].mean()))
+    gender = st.selectbox("Select Gender", ["Unisex", "Men", "Women"])
 
-    embeddings = OpenAIEmbeddings(openai_api_key=os.getenv("OPENAI_API_KEY"))
+    # Filter based on selections
+    filtered_df = refined_df[
+        (refined_df['primary_category'] == category) &
+        (refined_df['discounted_price'] <= max_price) &
+        (refined_df['gender'] == gender)
+    ]
 
-    if os.path.exists(vectorstore_dir):
-        vectorstore = load_vectorstore(vectorstore_dir, embeddings)
-    else:
-        vectorstore = process_data(refined_df)
-        save_vectorstore(vectorstore, vectorstore_dir)
+    if filtered_df.empty:
+        st.warning("No products match the selected criteria.")
+        return
 
-    manual_template = """
-    Kindly suggest three similar products based on the description I have provided below:
-
-    Product Department: {department},
-    Product Category: {category},
-    Product Brand: {brand},
-    Maximum Price range: {price}.
-
-    Please provide complete answers including product department name, product category, product name, price, and stock quantity.
-    """
-    prompt_manual = PromptTemplate(
-        input_variables=["department", "category", "brand", "price"],
-        template=manual_template,
-    )
-
-    llm = ChatOpenAI(openai_api_key=os.getenv("OPENAI_API_KEY"),
-                     model_name='gpt-3.5-turbo', temperature=0)
-
-    chain = LLMChain(
-        llm=llm,
-        prompt=prompt_manual,
-        verbose=True)
-
-    chatbot_template = """
-    You are a friendly, conversational retail shopping assistant that helps customers find products that match their preferences.
-    From the following context and chat history, assist customers in finding what they are looking for based on their input.
-    For each question, suggest three products, including their category, price, and current stock quantity.
-    Sort the answer by the cheapest product.
-    If you don't know the answer, just say that you don't know, don't try to make up an answer.
-
-    {context}
-
-    Chat history: {history}
-
-    Input: {question}
-    Your Response:
-    """
-    chatbot_prompt = PromptTemplate(
-        input_variables=["context", "history", "question"],
-        template=chatbot_template,
-    )
-
-    memory = ConversationBufferMemory(memory_key="history", input_key="question", return_messages=True)
-
-    qa = RetrievalQA.from_chain_type(
-        llm=llm,
-        chain_type='stuff',
-        retriever=vectorstore.as_retriever(),
-        verbose=True,
-        chain_type_kwargs={
-            "verbose": True,
-            "prompt": chatbot_prompt,
-            "memory": memory}
-    )
-
-    department = st.text_input("Product Department")
-    category = st.text_input("Product Category")
-    brand = st.text_input("Product Brand")
-    price = st.text_input("Maximum Price Range")
-
-    if st.button("Get Recommendations"):
-        response = chain.run(
-            department=department,
-            category=category,
-            brand=brand,
-            price=price
-        )
-        st.write(response)
+    # Show recommended products
+    st.subheader("Recommended Products")
+    for _, row in filtered_df.head(5).iterrows():
+        st.image(row['primary_image_link'], width=200)
+        st.markdown(f"**{row['product_name']}**")
+        st.markdown(f"Brand: {row['brand']}")
+        st.markdown(f"Price: ₹{row['discounted_price']} (Retail: ₹{row['retail_price']})")
+        
+        # Generate a short Gemini-powered description
+        if st.button(f"Generate AI Description for {row['pid']}", key=row['pid']):
+            prompt = f"Write a short, attractive product description for: {row['product_name']}. Category: {row['primary_category']}, Brand: {row['brand']}."
+            ai_description = generate_product_description(prompt)
+            st.success(ai_description)
