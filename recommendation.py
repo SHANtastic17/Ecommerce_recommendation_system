@@ -1,7 +1,7 @@
 import os
 from dotenv import load_dotenv
 import streamlit as st
-from google import generativeai as genai
+import google.generativeai as genai
 
 # Load API key from .env
 load_dotenv()
@@ -13,15 +13,9 @@ genai.configure(api_key=api_key)
 def generate_product_description(prompt):
     """
     Generate a product description using Gemini API based on a prompt.
-    
-    Args:
-        prompt (str): Prompt describing the product.
-    
-    Returns:
-        str: Generated description.
     """
     try:
-        model = genai.GenerativeModel("gemini-1.5-flash")
+        model = genai.GenerativeModel("gemini-pro")
         response = model.generate_content(prompt)
         return response.text
     except Exception as e:
@@ -31,18 +25,15 @@ def generate_product_description(prompt):
 def display_product_recommendation(refined_df):
     """
     Display product recommendation interface.
-    
-    Args:
-        refined_df (pd.DataFrame): Preprocessed dataset DataFrame.
     """
     st.header("Product Recommendation")
 
     # Filter options
     category = st.selectbox("Select Category", sorted(refined_df['primary_category'].dropna().unique()))
     max_price = st.slider("Select Maximum Price", 
-                          min_value=int(refined_df['discounted_price'].min()), 
-                          max_value=int(refined_df['discounted_price'].max()), 
-                          value=int(refined_df['discounted_price'].mean()))
+                         min_value=int(refined_df['discounted_price'].min()), 
+                         max_value=int(refined_df['discounted_price'].max()), 
+                         value=int(refined_df['discounted_price'].mean()))
     gender = st.selectbox("Select Gender", ["Unisex", "Men", "Women"])
 
     # Filter based on selections
@@ -59,12 +50,13 @@ def display_product_recommendation(refined_df):
     # Show recommended products
     st.subheader("Recommended Products")
     for _, row in filtered_df.head(5).iterrows():
-        st.image(row['primary_image_link'], width=200)
+        if row['primary_image_link']:
+            st.image(row['primary_image_link'], width=200)
         st.markdown(f"**{row['product_name']}**")
         st.markdown(f"Brand: {row['brand']}")
         st.markdown(f"Price: ₹{row['discounted_price']} (Retail: ₹{row['retail_price']})")
         
-        # Generate a short Gemini-powered description
+        # Generate AI description
         if st.button(f"Generate AI Description for {row['pid']}", key=row['pid']):
             prompt = f"Write a short, attractive product description for: {row['product_name']}. Category: {row['primary_category']}, Brand: {row['brand']}."
             ai_description = generate_product_description(prompt)
