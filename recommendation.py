@@ -2,6 +2,12 @@ import os
 from dotenv import load_dotenv
 import streamlit as st
 import google.generativeai as genai
+# Securely load Gemini API key from Streamlit Secrets
+try:
+    genai.configure(api_key=st.secrets["api_keys"]["GEMINI_API_KEY"])
+except Exception as e:
+    st.error("Failed to configure Gemini API. Check your secrets configuration.")
+    st.stop()
 
 # Load API key from .env
 load_dotenv()
