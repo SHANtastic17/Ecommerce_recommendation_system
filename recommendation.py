@@ -2,19 +2,23 @@ import os
 from dotenv import load_dotenv
 import streamlit as st
 import google.generativeai as genai
-# Securely load Gemini API key from Streamlit Secrets
-try:
-    genai.configure(api_key=st.secrets["api_keys"]["GEMINI_API_KEY"])
-except Exception as e:
-    st.error("Failed to configure Gemini API. Check your secrets configuration.")
-    st.stop()
 
-# Load API key from .env
+# Load environment variables
 load_dotenv()
-api_key = os.getenv("GEMINI_API_KEY")
 
 # Configure Gemini API
-genai.configure(api_key=api_key)
+genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+
+def generate_product_description(prompt):
+    try:
+        model = genai.GenerativeModel("gemini-pro")
+        response = model.generate_content(prompt)
+        return response.text
+    except Exception as e:
+        st.error(f"Error generating description: {str(e)}")
+        return ""
+
+
 
 def generate_product_description(prompt):
     """
