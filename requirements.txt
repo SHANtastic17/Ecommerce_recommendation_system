@@ -3,6 +3,6 @@ seaborn
 matplotlib
 python-dotenv
 streamlit
-google-generativeai
+google-genai
 requests
 Pillow
