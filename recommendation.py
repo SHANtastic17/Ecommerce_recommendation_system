@@ -2,13 +2,6 @@ import os
 import streamlit as st
 from google import genai
 import requests
-from datetime import datetime
-
-# Initialize session state for caching
-if 'ai_descriptions' not in st.session_state:
-    st.session_state.ai_descriptions = {}
-if 'api_key_valid' not in st.session_state:
-    st.session_state.api_key_valid = False
 
 def initialize_gemini_client():
     """Initialize Gemini client with multiple key sources"""
@@ -19,18 +12,11 @@ def initialize_gemini_client():
     )
     
     if not api_key:
-        st.error("🔑 No API key found in secrets, environment variables, or session state")
+        st.error("🔑 No API key found")
         return None
     
     try:
         client = genai.Client(api_key=api_key)
-        
-        # Quick test to validate connection
-        test_response = client.models.generate_content(
-            model="gemini-2.0-flash",
-            contents=[{"parts": [{"text": "Test connection"}]}]
-        )
-        
         st.session_state.api_key_valid = True
         return client
     except Exception as e:
@@ -43,8 +29,7 @@ def generate_with_sdk(client, prompt):
     try:
         response = client.models.generate_content(
             model="gemini-2.0-flash",
-            contents=[{"parts": [{"text": prompt}]}],
-            
+            contents=[{"parts": [{"text": prompt}]}]
         )
         return response.text
     except Exception as e:
@@ -76,23 +61,19 @@ def generate_with_http(prompt):
         return None
 
 def generate_product_description(prompt, product_id):
-    """Main generation function with caching and fallbacks"""
-    # Return cached description if available
+    """Main generation function with caching"""
     if product_id in st.session_state.ai_descriptions:
         return st.session_state.ai_descriptions[product_id]
     
-    # Initialize client if not done
     if 'gemini_client' not in st.session_state:
         st.session_state.gemini_client = initialize_gemini_client()
     
-    # Attempt SDK generation first
     if st.session_state.gemini_client:
         result = generate_with_sdk(st.session_state.gemini_client, prompt)
         if result:
             st.session_state.ai_descriptions[product_id] = result
             return result
     
-    # Fallback to HTTP API
     result = generate_with_http(prompt)
     if result:
         st.session_state.ai_descriptions[product_id] = result
@@ -102,7 +83,6 @@ def generate_product_description(prompt, product_id):
 
 def display_product_recommendation(refined_df):
     st.header("Smart Product Recommendations")
-    st.caption(f"Powered by Gemini 2.0 Flash | {datetime.now().strftime('%Y-%m-%d %H:%M')}")
     
     # API Key Fallback Input
     if not (st.secrets.get("GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY")):
@@ -170,16 +150,14 @@ def display_product_recommendation(refined_df):
                     use_container_width=True
                 ):
                     with st.spinner("Generating professional description..."):
-                        prompt = f"""Create a compelling 2-3 sentence product description for an e-commerce site:
+                        prompt = f"""Create a compelling 2-3 sentence product description:
                         
                         **Product:** {row['product_name']}
                         **Category:** {row['primary_category']}
                         **Brand:** {row['brand']}
                         **Key Selling Points:**
                         - Discounted from ₹{row['retail_price']} to ₹{row['discounted_price']}
-                        - {row['description'][:100]}...
-                        
-                        Make it engaging and highlight the value proposition."""
+                        - {row['description'][:100]}..."""
                         
                         description = generate_product_description(prompt, row['pid'])
                         st.success(description)
