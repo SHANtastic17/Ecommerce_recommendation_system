@@ -37,15 +37,6 @@ def main():
         )
         
         st.divider()
-        st.caption("⚙️ System Configuration")
-        st.markdown(f"**AI Model:** Gemini 2.0 Flash")
-        if os.getenv("GEMINI_API_KEY") or st.secrets.get("GEMINI_API_KEY"):
-            st.success("🔑 API Key Configured")
-        else:
-            st.error("❌ Missing API Key")
-        
-        st.divider()
-        st.caption(f"📅 Last Updated: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
 
     # Main content
     st.title("🛍️ E-Commerce Recommendation System")
