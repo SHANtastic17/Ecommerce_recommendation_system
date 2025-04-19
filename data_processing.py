@@ -3,13 +3,25 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 import streamlit as st
+import os
 
 @st.cache_resource
 def get_db_connection():
-    return sqlite3.connect("database/ecommerce.db")
+    # Construct absolute path to the database file
+    db_path = os.path.join(os.path.dirname(__file__), "database", "ecommerce.db")
+
+    # Optional: check if DB exists to avoid silent failure
+    if not os.path.exists(db_path):
+        st.error(f"Database file not found at: {db_path}")
+        return None
+
+    return sqlite3.connect(db_path)
 
 def preprocess_data():
     conn = get_db_connection()
+    if conn is None:
+        return pd.DataFrame()  # return empty dataframe if DB connection fails
+
     df = pd.read_sql("SELECT * FROM products", conn)
     conn.close()
     
