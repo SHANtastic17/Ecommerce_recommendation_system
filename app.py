@@ -4,21 +4,20 @@ from recommendation import display_product_recommendation
 import os
 from datetime import datetime
 
-# --- App Configuration ---
+# Configure page settings
 st.set_page_config(
-    page_title=" Ecommerce Recommendation System",
+    page_title="E-Commerce Recommendation System",
     page_icon="🛍️",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# --- Data Loading ---
 @st.cache_data(ttl=3600, show_spinner=True)
 def load_and_process_data():
-    """Load and preprocess data with caching"""
+    """Load and preprocess data with caching and error handling"""
     dataset_path = "flipkart_com-ecommerce_sample.csv"
     try:
-        with st.spinner("🧠 Loading and processing data..."):
+        with st.spinner("🧠 Loading and preprocessing data..."):
             df = load_data(dataset_path)
             if df is not None:
                 return preprocess_data(df)
@@ -27,9 +26,8 @@ def load_and_process_data():
         st.error(f"❌ Data loading failed: {str(e)}")
         return None
 
-# --- Main App ---
 def main():
-    # Sidebar Navigation
+    # Sidebar navigation
     with st.sidebar:
         st.title("🔍 Navigation")
         app_mode = st.radio(
@@ -39,18 +37,19 @@ def main():
         )
         
         st.divider()
-        st.caption("⚙️ System Status")
+        st.caption("⚙️ System Configuration")
+        st.markdown(f"**AI Model:** Gemini 2.0 Flash")
         if os.getenv("GEMINI_API_KEY") or st.secrets.get("GEMINI_API_KEY"):
             st.success("🔑 API Key Configured")
         else:
-            st.error("❌ Missing Gemini API Key")
+            st.error("❌ Missing API Key")
         
         st.divider()
         st.caption(f"📅 Last Updated: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
 
-    # Main Content
-    st.title("🛍️ Ecommerce Recommendation System")
-    st.caption("Powered by Gemini AI & Streamlit | Real-time personalized recommendations")
+    # Main content
+    st.title("🛍️ E-Commerce Recommendation System")
+    st.caption("Powered by Gemini 2.0 Flash | Real-time personalized recommendations")
     
     # Load data
     refined_df = load_and_process_data()
