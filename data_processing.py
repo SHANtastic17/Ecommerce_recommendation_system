@@ -5,35 +5,26 @@ import matplotlib.pyplot as plt
 import streamlit as st
 import os
 
-@st.cache_resource
-def get_db_connection():
-    # Construct absolute path to the database file
-    db_path = os.path.join(os.path.dirname(__file__), "database", "ecommerce.db")
+def get_db_path():
+    return os.path.join(os.path.dirname(__file__), "database", "ecommerce.db")
 
-    # Optional: check if DB exists to avoid silent failure
+@st.cache_data(ttl=3600)
+def preprocess_data():
+    db_path = get_db_path()
     if not os.path.exists(db_path):
         st.error(f"Database file not found at: {db_path}")
-        return None
+        return pd.DataFrame()
 
-    return sqlite3.connect(db_path)
+    # Open the connection inside the function each time (no caching of conn)
+    with sqlite3.connect(db_path) as conn:
+        df = pd.read_sql("SELECT * FROM products", conn)
 
-def preprocess_data():
-    conn = get_db_connection()
-    if conn is None:
-        return pd.DataFrame()  # return empty dataframe if DB connection fails
-
-    df = pd.read_sql("SELECT * FROM products", conn)
-    conn.close()
-    
-    # Calculate discount percentage
     df['discount_percentage'] = ((df['retail_price'] - df['discounted_price']) / df['retail_price']) * 100
     return df
 
 def display_data_analysis(refined_df):
-    """Display data analysis visualizations."""
     st.header("Data Analysis")
 
-    # Price distribution visualization
     top_categories = refined_df['primary_category'].value_counts().nlargest(10).index
     top_categories_df = refined_df[refined_df['primary_category'].isin(top_categories)]
 
@@ -42,7 +33,6 @@ def display_data_analysis(refined_df):
     ax.set_title('Price Distribution Across Top Categories')
     st.pyplot(fig)
 
-    # Discount percentage visualization
     fig, ax = plt.subplots(figsize=(10, 6))
     sns.histplot(refined_df['discount_percentage'], bins=30, kde=True, ax=ax)
     ax.set_title('Discount Percentage Distribution')
